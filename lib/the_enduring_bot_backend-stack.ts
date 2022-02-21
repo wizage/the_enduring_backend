@@ -1,4 +1,4 @@
-import { Stack, StackProps, aws_dynamodb, aws_ec2, aws_ecs, aws_iam, aws_elasticloadbalancingv2, Duration, aws_logs, aws_ssm} from 'aws-cdk-lib';
+import { Stack, StackProps, aws_dynamodb, aws_ec2, aws_ecs, aws_iam, aws_elasticloadbalancingv2, Duration, aws_logs, aws_ssm, aws_autoscaling} from 'aws-cdk-lib';
 import { SubnetType } from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
 
@@ -27,12 +27,29 @@ export class TheEnduringBotBackendStack extends Stack {
       natGateways:0,
     });
     const botCluster = new aws_ecs.Cluster(this, 'BotCluster', { vpc:defaultVPC });
-    botCluster.addCapacity('BotCap', {
-      instanceType: aws_ec2.InstanceType.of(aws_ec2.InstanceClass.T2, aws_ec2.InstanceSize.MICRO),
-      vpcSubnets: {subnetType: SubnetType.PUBLIC},
-      maxCapacity: 3,
+
+
+    // botCluster.addCapacity('BotCap', {
+    //   instanceType: aws_ec2.InstanceType.of(aws_ec2.InstanceClass.T2, aws_ec2.InstanceSize.MICRO),
+    //   vpcSubnets: {subnetType: SubnetType.PUBLIC},
+    //   maxCapacity: 3,
+    //   minCapacity: 1,
+      
+    // });
+
+    const autoScalingGroup = new aws_autoscaling.AutoScalingGroup(this, 'ASG', {
+      vpc: defaultVPC,
+      instanceType: new aws_ec2.InstanceType('t2.micro'),
+      machineImage: aws_ecs.EcsOptimizedImage.amazonLinux2(),
       minCapacity: 1,
+      maxCapacity: 3,
+      vpcSubnets: {subnetType: SubnetType.PUBLIC},
     });
+
+    const capacityProvider = new aws_ecs.AsgCapacityProvider(this, 'AsgCapacityProvider', {
+      autoScalingGroup,
+    });
+    botCluster.addAsgCapacityProvider(capacityProvider);
 
     const execRole = new aws_iam.Role(this, 'bottyExec-', {
       assumedBy: new aws_iam.ServicePrincipal('ecs-tasks.amazonaws.com')
@@ -75,14 +92,20 @@ export class TheEnduringBotBackendStack extends Stack {
 
     
     container.addPortMappings({
-      containerPort: 3000,
-      hostPort: 3000,
+      containerPort: 80,
+      hostPort: 80,
       protocol: aws_ecs.Protocol.TCP
     });
     
     const service = new aws_ecs.Ec2Service(this, 'Service', {
       cluster: botCluster,
       taskDefinition: taskDef,
+      capacityProviderStrategies: [
+        {
+          capacityProvider: capacityProvider.capacityProviderName,
+          weight: 1,
+        }
+      ]
     });
 
     const lb = new aws_elasticloadbalancingv2.ApplicationLoadBalancer(this, 'LB', {
@@ -91,14 +114,9 @@ export class TheEnduringBotBackendStack extends Stack {
     });
     const listener = lb.addListener('PublicListener', { port: 80, open: true });
     
-    // Attach ALB to ECS Service
     listener.addTargets('ECS', {
       port: 80,
-      targets: [service.loadBalancerTarget({
-        containerName: 'botty',
-        containerPort: 3000
-      })],
-      // include health check (default is none)
+      targets: [autoScalingGroup],
       healthCheck: {
         interval: Duration.seconds(60),
         path: "/health",
