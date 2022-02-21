@@ -1,8 +1,10 @@
-# Welcome to your CDK TypeScript project!
+# Backend hosting for the discord bot
 
-This is a blank project for TypeScript development with CDK.
+This is used to host an image from your ECR repo that github actions posts to.
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+You need to go to parameter store and add in your Discord Token.
+
+Parameter store should be: `DISCORDTOKEN`
 
 ## Useful commands
 
