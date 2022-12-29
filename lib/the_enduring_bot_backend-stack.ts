@@ -5,6 +5,14 @@ import { Construct } from 'constructs';
 export class TheEnduringBotBackendStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
+    const oysterTable = new aws_dynamodb.Table(this, 'oysterTable', {
+      tableName: 'oysterTable',
+      partitionKey: { 
+        name: 'monthDate', 
+        type: aws_dynamodb.AttributeType.STRING
+      },
+      billingMode: aws_dynamodb.BillingMode.PAY_PER_REQUEST,
+    });
 
     const userTable = new aws_dynamodb.Table(this, 'UserTable', {
       tableName: 'userTable',
