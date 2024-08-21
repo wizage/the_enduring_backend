@@ -14,6 +14,19 @@ export class TheEnduringBotBackendStack extends Stack {
       billingMode: aws_dynamodb.BillingMode.PAY_PER_REQUEST,
     });
 
+    const bingoTable = new aws_dynamodb.Table(this, 'bingoTable', {
+      tableName: 'bingoTable',
+      partitionKey: { 
+        name: 'team_id', 
+        type: aws_dynamodb.AttributeType.STRING
+      },
+      sortKey:{
+        name: 'card_id',
+        type: aws_dynamodb.AttributeType.STRING
+      },
+      billingMode: aws_dynamodb.BillingMode.PAY_PER_REQUEST,
+    });
+
     const userTable = new aws_dynamodb.Table(this, 'UserTable', {
       tableName: 'userTable',
       partitionKey: { 
